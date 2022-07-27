@@ -6,30 +6,48 @@ set -ex
 
 LCMS2_VERSION="$1"
 INSTALL_TARGET="$2"
+remove=1
 
-git clone https://github.com/mm2/Little-CMS.git
+if [ $3 == "keep" ]; then
+    remove=0
+fi
+
+if [ ! -d "Little-CMS" ]; then
+    git clone https://github.com/mm2/Little-CMS.git
+else
+    cd Little-CMS
+    git reset --hard origin/master
+    git checkout master
+    cd ..
+fi
+
 cd Little-CMS
 
 if [ "$LCMS2_VERSION" == "latest" ]; then
     LATEST_TAG=$(git describe --abbrev=0 --tags)
+    git branch -d ${LATEST_TAG} >/dev/null 2>&1 || true
     git checkout tags/${LATEST_TAG} -b ${LATEST_TAG}
 else
+    git branch -d lcms${LCMS2_VERSION} >/dev/null 2>&1 || true
     git checkout tags/lcms${LCMS2_VERSION} -b lcms${LCMS2_VERSION}
 fi
 
-cp ../share/cmake/projects/Buildlcms2.cmake CMakeLists.txt
+cp $CURRENT_ROOT/share/cmake/projects/Buildlcms2.cmake CMakeLists.txt
 
-mkdir build
+mkdir -p build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release \
-      ${INSTALL_TARGET:+"-DCMAKE_INSTALL_PREFIX="${INSTALL_TARGET}""} \
-      -DBUILD_SHARED_LIBS=ON \
-      -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-      ../.
+    ${INSTALL_TARGET:+"-DCMAKE_INSTALL_PREFIX="${INSTALL_TARGET}""} \
+    -DBUILD_SHARED_LIBS=ON \
+    -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+    ../.
 cmake --build . \
-      --target install \
-      --config Release \
-      --parallel 2
+    --target install \
+    --config Release \
+    --parallel 2
 
 cd ../..
-rm -rf Little-CMS
+
+if [ $remove == 1 ]; then
+    rm -rf Little-CMS
+fi
